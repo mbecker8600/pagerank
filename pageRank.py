@@ -15,7 +15,7 @@ import prProjectUtils as util
 from collections import defaultdict
 #to build a dictionary that will have a list as its value
 #use : mydict = defaultdict(list)
-import random
+import numpy as np
 
 
 #PageRank object to hold graph representation and code to solve for algorithm
@@ -55,16 +55,22 @@ class PageRank(object):
     """
     def initAllStructs(self):
 
+        if self.selfLoops:
+            for i in range(self.N):
+                self.adjList[i].append(i)
+
         self.in_list = [[] for _ in range(self.N)]
-        self.out_degree = [0 for _ in range(self.N)]
+        self.out_degree = np.array([0 for _ in range(self.N)])
 
         for node, out_links in self.adjList.items():
             self.out_degree[node] = len(out_links)
             for link in out_links:
-                self.in_list[node].append(link)
+                self.in_list[link].append(node)
 
-        self.sink_nodes = [self.out_degree[i] == 0 for i in range(self.N)]
-        self.rankVec = [float(1/self.N) for _ in range(self.N)]
+        if not self.selfLoops:
+            self.sink_nodes = np.array([self.out_degree[i] == 0 for i in range(self.N)])
+
+        self.rankVec = np.array([float(1/self.N) for _ in range(self.N)])
         
     """
     Task 2 : using in-list structure, out-degree structure, (and sink-related 
@@ -74,16 +80,20 @@ class PageRank(object):
     """
     def solveRankIter(self, oldRankVec):
         #need to make copy of old rank vector 
-        newRankVec = [r for r in oldRankVec]
+        newRankVec = np.copy(oldRankVec)
+
+        random_chance = (1 - self.alpha) / self.N
+        if not self.selfLoops:
+            sink_ranks = (self.alpha / self.N) * oldRankVec[self.sink_nodes].sum()
 
         for i in range(self.N):
-            s = 0
-            for j in self.in_list[i]:
-                if self.sink_nodes[j] and self.selfLoops:
-                    s += (oldRankVec[j] / 1)
-                else:
-                    s += (oldRankVec[j] / self.out_degree[j])
-            newRankVec[i] = s * self.alpha + ((1 - self.alpha) / self.N)
+            if not self.selfLoops:
+                newRankVec[i] = random_chance \
+                                + self.alpha * (oldRankVec[self.in_list[i]] / self.out_degree[self.in_list[i]]).sum() \
+                                + sink_ranks
+            else:
+                newRankVec[i] = random_chance \
+                                + self.alpha * (oldRankVec[self.in_list[i]] / self.out_degree[self.in_list[i]]).sum()
         
         return newRankVec
     
@@ -93,17 +103,18 @@ class PageRank(object):
     """
     def solveRankToEps(self, eps):
         #copy current page rank vector
-        newRankVec = [r for r in self.rankVec]
-        
-        
-        #your code goes here < 3 >
-        node = random.randint(0, self.N)
-        for _ in range(10000):
-            prob = random.random()
-            if prob < 1 - self.alpha or self.sink_nodes[node]:
-                newRankVec = self.solveRankIter(newRankVec)
-                
-        return newRankVec    
+        newRankVec = np.copy(self.rankVec)
+
+        while True:
+            updatedRankVec = self.solveRankIter(newRankVec)
+            change = 1 - np.linalg.norm((updatedRankVec, newRankVec), ord=np.inf)
+            print change
+            if change < eps:
+                newRankVec = updatedRankVec
+                break
+            newRankVec = updatedRankVec
+
+        return list(newRankVec)
     
     
     """
