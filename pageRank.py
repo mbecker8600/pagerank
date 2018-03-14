@@ -82,18 +82,15 @@ class PageRank(object):
         #need to make copy of old rank vector 
         newRankVec = np.copy(oldRankVec)
 
-        random_chance = (1 - self.alpha) / self.N
+        if self.selfLoops:
+            const = (1 - self.alpha) / self.N
         if not self.selfLoops:
-            sink_ranks = (self.alpha / self.N) * oldRankVec[self.sink_nodes].sum()
+            const = ((self.alpha * oldRankVec[self.sink_nodes].sum()) + (1 - self.alpha)) / self.N
 
         for i in range(self.N):
-            if not self.selfLoops:
-                newRankVec[i] = random_chance \
-                                + self.alpha * (oldRankVec[self.in_list[i]] / self.out_degree[self.in_list[i]]).sum() \
-                                + sink_ranks
-            else:
-                newRankVec[i] = random_chance \
-                                + self.alpha * (oldRankVec[self.in_list[i]] / self.out_degree[self.in_list[i]]).sum()
+            incoming_nodes = self.in_list[i]
+            newRankVec[i] = const \
+                            + self.alpha * (oldRankVec[incoming_nodes] / self.out_degree[incoming_nodes]).sum()
         
         return newRankVec
     
